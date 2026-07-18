@@ -1,0 +1,114 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <world name="sorting_world">
+    <!-- Fisica di base -->
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>10 10</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>10 10</size></plane></geometry>
+          <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.8 0.8 0.8 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- TAVOLO -->
+    <model name="tavolo">
+      <static>true</static>
+      <pose>0.4 0 0.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.6 0.8 0.2</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>0.6 0.8 0.2</size></box></geometry>
+          <material><ambient>0.6 0.4 0.2 1</ambient><diffuse>0.6 0.4 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- AREE DI SCARICO (Bins) -->
+    <!-- Cesto Rosso -->
+    <model name="bin_rosso">
+      <static>true</static><pose>0.0 0.4 0.05 0 0 0</pose>
+      <link name="link">
+        <visual name="visual"><geometry><box><size>0.2 0.2 0.1</size></box></geometry><material><ambient>0.8 0 0 0.5</ambient><diffuse>0.8 0 0 0.5</diffuse></material></visual>
+      </link>
+    </model>
+    <!-- Cesto Verde -->
+    <model name="bin_verde">
+      <static>true</static><pose>0.0 -0.4 0.05 0 0 0</pose>
+      <link name="link">
+        <visual name="visual"><geometry><box><size>0.2 0.2 0.1</size></box></geometry><material><ambient>0 0.8 0 0.5</ambient><diffuse>0 0.8 0 0.5</diffuse></material></visual>
+      </link>
+    </model>
+    <!-- Cesto Blu -->
+    <model name="bin_blu">
+      <static>true</static><pose>-0.3 0.0 0.05 0 0 0</pose>
+      <link name="link">
+        <visual name="visual"><geometry><box><size>0.2 0.2 0.1</size></box></geometry><material><ambient>0 0 0.8 0.5</ambient><diffuse>0 0 0.8 0.5</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- CUBI DA SMISTARE -->
+    <model name="cubo_rosso">
+      <pose>0.4 0.1 0.25 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.04 0.04 0.04</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="vis"><geometry><box><size>0.04 0.04 0.04</size></box></geometry><material><ambient>0.8 0 0 1</ambient><diffuse>0.8 0 0 1</diffuse></material></visual>
+        <inertial><mass>0.05</mass><inertia><ixx>0.00001</ixx><iyy>0.00001</iyy><izz>0.00001</izz></inertia></inertial>
+      </link>
+    </model>
+
+    <model name="cubo_verde">
+      <pose>0.4 0.0 0.25 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.04 0.04 0.04</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="vis"><geometry><box><size>0.04 0.04 0.04</size></box></geometry><material><ambient>0 0.8 0 1</ambient><diffuse>0 0.8 0 1</diffuse></material></visual>
+        <inertial><mass>0.05</mass><inertia><ixx>0.00001</ixx><iyy>0.00001</iyy><izz>0.00001</izz></inertia></inertial>
+      </link>
+    </model>
+
+    <model name="cubo_blu">
+      <pose>0.4 -0.1 0.25 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.04 0.04 0.04</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="vis"><geometry><box><size>0.04 0.04 0.04</size></box></geometry><material><ambient>0 0 0.8 1</ambient><diffuse>0 0 0.8 1</diffuse></material></visual>
+        <inertial><mass>0.05</mass><inertia><ixx>0.00001</ixx><iyy>0.00001</iyy><izz>0.00001</izz></inertia></inertial>
+      </link>
+    </model>
+
+  </world>
+</sdf>
