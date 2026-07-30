@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workspace="/workspaces/sorting_ws"
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
+source "${CHAPTER09_INSTALL}/setup.bash"
+
+cd "${workspace}"
+colcon build --symlink-install --event-handlers console_direct+
+
+printf '\nBuild completata. Attiva l’overlay con:\n'
+printf '  source %s/install/setup.bash\n' "${workspace}"

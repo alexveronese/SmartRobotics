@@ -1,0 +1,35 @@
+--- a/urdf/panda_arm.xacro
++++ b/urdf/panda_arm.xacro
+@@ -424,14 +424,11 @@
+           </noise>
+         </camera>
+ 
+-          <plugin filename="libgz-sim-sensors-system.so" name="gz::sim::systems::Sensors"> 
+-            <render_engine>ogre</render_engine>
+-          </plugin>
+       </sensor> 
+       </gazebo>
+ 
+   
+-   <ros2_control name="2DofPosition" type="system">
++   <ros2_control name="PandaGazeboSystem" type="system">
+         <hardware>
+             <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+         </hardware>
+@@ -487,14 +484,14 @@
+             <joint name="finger_joint1">
+                 <command_interface name="position"/>
+                 <state_interface name="position">
+-                  <param name="initial_value">0.0</param>
++                  <param name="initial_value">0.035</param>
+                 </state_interface>
+                 <state_interface name="velocity"/>
+             </joint>
+             <joint name="finger_joint2">
+                 <command_interface name="position"/>
+                 <state_interface name="position">
+-                  <param name="initial_value">0.0</param>
++                  <param name="initial_value">0.035</param>
+                 </state_interface>
+                 <state_interface name="velocity"/>
+             </joint>

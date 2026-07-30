@@ -1,0 +1,7 @@
+.DS_Store
+.env
+__pycache__/
+*.py[cod]
+sorting_ws/build/
+sorting_ws/install/
+sorting_ws/log/
