@@ -1,0 +1,9 @@
+tic_tac_toe_robot:
+  ros__parameters:
+    use_sim_time: true
+    stable_frames: 3
+    perception_timeout: 8.0
+    # Nominal duration of each arm segment. Lower values move faster; 1.25 s is
+    # a conservative speed-up for the simulated Panda.
+    motion_duration: 1.25
+    gripper_duration: 0.45

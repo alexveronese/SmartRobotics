@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<robot name="tic_tac_toe_panda" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="controllers_file" default=""/>
+  <xacro:include filename="$(find moveit_resources_panda_description)/urdf/panda.urdf.xacro"/>
+
+  <!-- Gazebo fixed-base mount. A separate world link prevents the dynamic
+       Panda root from falling or sliding off its physical pedestal. -->
+  <link name="world"/>
+  <joint name="panda_mount_joint" type="fixed">
+    <parent link="world"/><child link="panda_link0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="panda_tcp"/>
+  <joint name="panda_tcp_joint" type="fixed">
+    <parent link="panda_hand"/><child link="panda_tcp"/>
+    <origin xyz="0 0 0.1034" rpy="0 0 0"/>
+  </joint>
+
+  <ros2_control name="PandaGazeboSystem" type="system">
+    <hardware><plugin>gz_ros2_control/GazeboSimSystem</plugin></hardware>
+    <joint name="panda_joint1"><command_interface name="position"/><state_interface name="position"><param name="initial_value">0.0</param></state_interface><state_interface name="velocity"/></joint>
+    <joint name="panda_joint2"><command_interface name="position"/><state_interface name="position"><param name="initial_value">-0.78</param></state_interface><state_interface name="velocity"/></joint>
+    <joint name="panda_joint3"><command_interface name="position"/><state_interface name="position"><param name="initial_value">0.0</param></state_interface><state_interface name="velocity"/></joint>
+    <joint name="panda_joint4"><command_interface name="position"/><state_interface name="position"><param name="initial_value">-2.35</param></state_interface><state_interface name="velocity"/></joint>
+    <joint name="panda_joint5"><command_interface name="position"/><state_interface name="position"><param name="initial_value">0.0</param></state_interface><state_interface name="velocity"/></joint>
+    <joint name="panda_joint6"><command_interface name="position"/><state_interface name="position"><param name="initial_value">1.57</param></state_interface><state_interface name="velocity"/></joint>
+    <joint name="panda_joint7"><command_interface name="position"/><state_interface name="position"><param name="initial_value">0.78</param></state_interface><state_interface name="velocity"/></joint>
+    <joint name="panda_finger_joint1"><command_interface name="position"/><state_interface name="position"><param name="initial_value">0.035</param></state_interface><state_interface name="velocity"/></joint>
+    <joint name="panda_finger_joint2"><command_interface name="position"/><state_interface name="position"><param name="initial_value">0.035</param></state_interface><state_interface name="velocity"/></joint>
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(arg controllers_file)</parameters>
+    </plugin>
+  </gazebo>
+</robot>

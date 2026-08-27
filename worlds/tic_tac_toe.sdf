@@ -1,0 +1,254 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <world name="tic_tac_toe">
+    <physics name="2ms" type="ignored">
+      <max_step_size>0.002</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>500</real_time_update_rate>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+
+    <light type="directional" name="sun">
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.4 0.2 -0.9</direction>
+      <cast_shadows>false</cast_shadows>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static><pose>0 0 -0.45 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>5 5 0.04</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>5 5 0.04</size></box></geometry>
+          <material><ambient>0.55 0.58 0.60 1</ambient><diffuse>0.55 0.58 0.60 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="robot_pedestal">
+      <static>true</static><pose>0 0 -0.215 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><cylinder><radius>0.16</radius><length>0.43</length></cylinder></geometry></collision>
+        <visual name="visual"><geometry><cylinder><radius>0.16</radius><length>0.43</length></cylinder></geometry>
+          <material><ambient>0.12 0.15 0.19 1</ambient><diffuse>0.16 0.20 0.26 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="table">
+      <!-- Top X range is [0.205, 0.855], leaving 45 mm from the 0.16 m pedestal. -->
+      <static>true</static><pose>0.53 0 -0.025 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.65 0.68 0.05</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.65 0.68 0.05</size></box></geometry>
+          <material><ambient>0.42 0.22 0.08 1</ambient><diffuse>0.52 0.30 0.12 1</diffuse></material>
+        </visual>
+        <collision name="leg_1"><pose>0.27 0.28 -0.225 0 0 0</pose><geometry><box><size>0.04 0.04 0.40</size></box></geometry></collision>
+        <collision name="leg_2"><pose>0.27 -0.28 -0.225 0 0 0</pose><geometry><box><size>0.04 0.04 0.40</size></box></geometry></collision>
+        <collision name="leg_3"><pose>-0.27 0.28 -0.225 0 0 0</pose><geometry><box><size>0.04 0.04 0.40</size></box></geometry></collision>
+        <collision name="leg_4"><pose>-0.27 -0.28 -0.225 0 0 0</pose><geometry><box><size>0.04 0.04 0.40</size></box></geometry></collision>
+        <visual name="legs"><pose>0 0 -0.225 0 0 0</pose><geometry><box><size>0.58 0.59 0.40</size></box></geometry><material><ambient>0.18 0.18 0.18 1</ambient><diffuse>0.22 0.22 0.22 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="board">
+      <static>true</static><pose>0.53 0 0 0 0 0</pose>
+      <link name="link">
+        <collision name="board_collision"><pose>0 0 0.008 0 0 0</pose><geometry><box><size>0.32 0.32 0.016</size></box></geometry></collision>
+        <visual name="board_visual"><pose>0 0 0.008 0 0 0</pose><geometry><box><size>0.32 0.32 0.016</size></box></geometry>
+          <material><ambient>0.86 0.85 0.74 1</ambient><diffuse>0.92 0.91 0.80 1</diffuse></material>
+        </visual>
+        <visual name="vline_1"><pose>0 -0.05 0.019 0 0 0</pose><geometry><box><size>0.30 0.008 0.006</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.05 0.05 0.05 1</diffuse></material></visual>
+        <visual name="vline_2"><pose>0 0.05 0.019 0 0 0</pose><geometry><box><size>0.30 0.008 0.006</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.05 0.05 0.05 1</diffuse></material></visual>
+        <visual name="hline_1"><pose>-0.05 0 0.019 0 0 0</pose><geometry><box><size>0.008 0.30 0.006</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.05 0.05 0.05 1</diffuse></material></visual>
+        <visual name="hline_2"><pose>0.05 0 0.019 0 0 0</pose><geometry><box><size>0.008 0.30 0.006</size></box></geometry><material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.05 0.05 0.05 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Fixed top-down camera. Its optical +X axis is rotated toward world -Z. -->
+    <model name="overhead_camera">
+      <static>true</static><pose>0.53 0 1.25 0 1.570796 0</pose>
+      <link name="camera_link">
+        <visual name="housing"><geometry><box><size>0.06 0.06 0.08</size></box></geometry><material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.08 0.08 0.08 1</diffuse></material></visual>
+        <sensor name="board_camera" type="camera">
+          <always_on>true</always_on><update_rate>15</update_rate><topic>/camera/image_raw</topic>
+          <camera>
+            <horizontal_fov>0.92</horizontal_fov>
+            <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+            <clip><near>0.05</near><far>3.0</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Red X supply. Each link has two crossed box visuals and one small collision. -->
+    <model name="x_piece_1"><pose>0.31 0.29 0.007 0 0 0</pose><link name="link"><collision name="c"><geometry><cylinder><radius>0.033</radius><length>0.014</length></cylinder></geometry></collision><visual name="a"><pose>0 0 0 0 0 0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><visual name="b"><pose>0 0 0 0 0 -0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><inertial><mass>0.03</mass></inertial></link></model>
+    <model name="x_piece_2"><pose>0.39 0.29 0.007 0 0 0</pose><link name="link"><collision name="c"><geometry><cylinder><radius>0.033</radius><length>0.014</length></cylinder></geometry></collision><visual name="a"><pose>0 0 0 0 0 0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><visual name="b"><pose>0 0 0 0 0 -0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><inertial><mass>0.03</mass></inertial></link></model>
+    <model name="x_piece_3"><pose>0.47 0.29 0.007 0 0 0</pose><link name="link"><collision name="c"><geometry><cylinder><radius>0.033</radius><length>0.014</length></cylinder></geometry></collision><visual name="a"><pose>0 0 0 0 0 0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><visual name="b"><pose>0 0 0 0 0 -0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><inertial><mass>0.03</mass></inertial></link></model>
+    <model name="x_piece_4"><pose>0.31 0.21 0.007 0 0 0</pose><link name="link"><collision name="c"><geometry><cylinder><radius>0.033</radius><length>0.014</length></cylinder></geometry></collision><visual name="a"><pose>0 0 0 0 0 0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><visual name="b"><pose>0 0 0 0 0 -0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><inertial><mass>0.03</mass></inertial></link></model>
+    <model name="x_piece_5"><pose>0.39 0.21 0.007 0 0 0</pose><link name="link"><collision name="c"><geometry><cylinder><radius>0.033</radius><length>0.014</length></cylinder></geometry></collision><visual name="a"><pose>0 0 0 0 0 0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><visual name="b"><pose>0 0 0 0 0 -0.7854</pose><geometry><box><size>0.065 0.014 0.014</size></box></geometry><material><ambient>0.9 0.03 0.03 1</ambient><diffuse>0.9 0.03 0.03 1</diffuse></material></visual><inertial><mass>0.03</mass></inertial></link></model>
+
+    <!-- Blue O supply. Twelve physical segments form a real 36 mm hole and a 68 mm outside diameter. -->
+    <model name="o_piece_1">
+      <static>true</static>
+      <pose>0.31 -0.29 0.007 0 0 0</pose>
+      <link name="link">
+        <collision name="ring_collision_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <visual name="ring_visual_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <inertial><mass>0.03</mass></inertial>
+      </link>
+    </model>
+    <model name="o_piece_2">
+      <static>true</static>
+      <pose>0.39 -0.29 0.007 0 0 0</pose>
+      <link name="link">
+        <collision name="ring_collision_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <visual name="ring_visual_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <inertial><mass>0.03</mass></inertial>
+      </link>
+    </model>
+    <model name="o_piece_3">
+      <static>true</static>
+      <pose>0.47 -0.29 0.007 0 0 0</pose>
+      <link name="link">
+        <collision name="ring_collision_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <visual name="ring_visual_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <inertial><mass>0.03</mass></inertial>
+      </link>
+    </model>
+    <model name="o_piece_4">
+      <static>true</static>
+      <pose>0.31 -0.21 0.007 0 0 0</pose>
+      <link name="link">
+        <collision name="ring_collision_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <visual name="ring_visual_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <inertial><mass>0.03</mass></inertial>
+      </link>
+    </model>
+    <model name="o_piece_5">
+      <static>true</static>
+      <pose>0.39 -0.21 0.007 0 0 0</pose>
+      <link name="link">
+        <collision name="ring_collision_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <collision name="ring_collision_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><surface><friction><ode><mu>1.5</mu><mu2>1.5</mu2></ode></friction></surface></collision>
+        <visual name="ring_visual_0"><pose>0.026 0 0 0 0 0</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_1"><pose>0.022517 0.013 0 0 0 0.523599</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_2"><pose>0.013 0.022517 0 0 0 1.047198</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_3"><pose>0 0.026 0 0 0 1.570796</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_4"><pose>-0.013 0.022517 0 0 0 2.094395</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_5"><pose>-0.022517 0.013 0 0 0 2.617994</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_6"><pose>-0.026 0 0 0 0 3.141593</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_7"><pose>-0.022517 -0.013 0 0 0 3.665191</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_8"><pose>-0.013 -0.022517 0 0 0 4.18879</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_9"><pose>0 -0.026 0 0 0 4.712389</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_10"><pose>0.013 -0.022517 0 0 0 5.235988</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <visual name="ring_visual_11"><pose>0.022517 -0.013 0 0 0 5.759587</pose><geometry><box><size>0.016 0.0145 0.014</size></box></geometry><material><ambient>0.02 0.15 0.95 1</ambient><diffuse>0.02 0.15 0.95 1</diffuse></material></visual>
+        <inertial><mass>0.03</mass></inertial>
+      </link>
+    </model>
+  </world>
+</sdf>

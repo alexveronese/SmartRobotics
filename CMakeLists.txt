@@ -7,23 +7,29 @@ endif()
 
 # Trova le dipendenze
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rclpy REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(trajectory_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
+
+ament_python_install_package(tic_tac_toe)
 
 # Installa le cartelle principali
 install(
-  DIRECTORY launch urdf config worlds scripts
+  DIRECTORY launch urdf config worlds
   DESTINATION share/${PROJECT_NAME}
+  PATTERN "__pycache__" EXCLUDE
 )
 
 # Rende eseguibili gli script Python nella cartella scripts
 install(
-  PROGRAMS scripts/smistatore_colori.py
+  PROGRAMS scripts/tic_tac_toe_game.py
   DESTINATION lib/${PROJECT_NAME}
 )
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_game test/test_game.py)
+  ament_add_pytest_test(test_scene test/test_scene.py)
+  ament_add_pytest_test(test_vision test/test_vision.py)
+endif()
 
 ament_package()

@@ -2,36 +2,32 @@ controller_manager:
   ros__parameters:
     update_rate: 100
     use_sim_time: true
-
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
-
     arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
-
-    gripper_controller:
+    eef_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
 arm_controller:
   ros__parameters:
     joints:
-      - joint_1
-      - joint_2
-      - joint_3
-      - joint_4
-    command_interfaces:
-      - position
-    state_interfaces:
-      - position
-    allow_partial_joints_goal: true
+      - panda_joint1
+      - panda_joint2
+      - panda_joint3
+      - panda_joint4
+      - panda_joint5
+      - panda_joint6
+      - panda_joint7
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_partial_joints_goal: false
 
-gripper_controller:
+eef_controller:
   ros__parameters:
     joints:
-      - joint_left_finger
-      - joint_right_finger
-    command_interfaces:
-      - position
-    state_interfaces:
-      - position
-    allow_partial_joints_goal: true
+      - panda_finger_joint1
+      - panda_finger_joint2
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_partial_joints_goal: false
