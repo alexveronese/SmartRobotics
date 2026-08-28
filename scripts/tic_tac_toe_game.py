@@ -20,7 +20,7 @@ from ros_gz_interfaces.msg import Entity
 from ros_gz_interfaces.srv import SetEntityPose
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import JointState
-from std_msgs.msg import String
+from std_msgs.msg import Empty, String
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 import xacro
 import numpy as np
@@ -36,24 +36,23 @@ GRIPPER_JOINTS = ["panda_finger_joint1", "panda_finger_joint2"]
 
 # Camera numbering is top-left to bottom-right. With the supplied camera pose,
 # image rows run from +world-X to -world-X and columns from +world-Y to -world-Y.
-SUPPLY_PIECE_Z = 0.007
-BOARD_PIECE_Z = 0.023
-SUPPLY_GRASP_Z = 0.016
-BOARD_GRASP_Z = 0.032
+X_SUPPLY_PIECE_Z = 0.007
+X_BOARD_PIECE_Z = 0.023
+O_SUPPLY_PIECE_Z = 0.015
+O_BOARD_PIECE_Z = 0.031
+SUPPLY_GRASP_Z = O_SUPPLY_PIECE_Z
+BOARD_GRASP_Z = O_BOARD_PIECE_Z
 GRIPPER_OPEN_POSITION = 0.040
 # The O has a 68 mm outside diameter. A 66 mm commanded aperture gives the
 # simulated fingers 1 mm of contact on each side without closing through it.
 O_GRASP_FINGER_POSITION = 0.033
 
 CELL_POSITIONS = tuple(
-    (0.63 - row * 0.10, 0.10 - col * 0.10, BOARD_PIECE_Z)
+    (0.67 - row * 0.10, 0.10 - col * 0.10)
     for row in range(3) for col in range(3)
 )
-X_SUPPLY = ((0.31, 0.29), (0.39, 0.29), (0.47, 0.29), (0.31, 0.21), (0.39, 0.21))
-O_SUPPLY = ((0.31, -0.29), (0.39, -0.29), (0.47, -0.29), (0.31, -0.21), (0.39, -0.21))
-# The TCP is 9 mm above the centre of a piece at the grasp pose. Keeping this
-# offset while transporting the piece makes it sit between the two fingers.
-HELD_PIECE_TCP_OFFSET = np.array([0.0, 0.0, -0.009])
+X_SUPPLY = ((0.31, 0.26), (0.41, 0.26), (0.51, 0.26), (0.61, 0.26), (0.71, 0.26))
+O_SUPPLY = ((0.31, -0.26), (0.41, -0.26), (0.51, -0.26), (0.61, -0.26), (0.71, -0.26))
 
 
 def render_board(board: Sequence[str]) -> str:
@@ -83,8 +82,8 @@ class TicTacToeRobot(Node):
         self.grasp_rotation = self.chain.forward(HOME)[:3, :3]
         self.positions_lock = threading.Lock()
         self.current_positions: Optional[np.ndarray] = None
-        self.held_piece: Optional[str] = None
-        self.piece_pose_future = None
+        self.attachment_condition = threading.Condition()
+        self.attachment_states = {f"o_piece_{index}": None for index in range(1, 6)}
         self.board_condition = threading.Condition()
         self.recent_boards: deque[Tuple[str, ...]] = deque(
             maxlen=int(self.get_parameter("stable_frames").value)
@@ -109,7 +108,18 @@ class TicTacToeRobot(Node):
         self.gripper_client = ActionClient(
             self, FollowJointTrajectory, "/eef_controller/follow_joint_trajectory"
         )
-        self.create_timer(0.05, self.update_held_piece_pose)
+        self.attach_pubs = {}
+        self.detach_pubs = {}
+        for index in range(1, 6):
+            name = f"o_piece_{index}"
+            self.attach_pubs[name] = self.create_publisher(Empty, f"/{name}/attach", 1)
+            self.detach_pubs[name] = self.create_publisher(Empty, f"/{name}/detach", 1)
+            self.create_subscription(
+                String,
+                f"/{name}/state",
+                lambda message, piece=name: self.attachment_state_callback(piece, message),
+                1,
+            )
         self.get_logger().info("Waiting for a stable overhead-camera view...")
 
     def joint_state_callback(self, message: JointState) -> None:
@@ -117,6 +127,11 @@ class TicTacToeRobot(Node):
         if all(name in values for name in ARM_JOINTS):
             with self.positions_lock:
                 self.current_positions = np.array([values[name] for name in ARM_JOINTS])
+
+    def attachment_state_callback(self, name: str, message: String) -> None:
+        with self.attachment_condition:
+            self.attachment_states[name] = message.data == "attached"
+            self.attachment_condition.notify_all()
 
     def publish_status(self, text: str) -> None:
         self.status_pub.publish(String(data=text))
@@ -197,52 +212,40 @@ class TicTacToeRobot(Node):
         if not response.success:
             raise RuntimeError(f"Gazebo rejected pose update for {name}")
 
-    def update_held_piece_pose(self) -> None:
-        """Continuously keep the grasped model at the current Panda TCP."""
-        with self.positions_lock:
-            if self.held_piece is None or self.current_positions is None:
-                return
-            if self.piece_pose_future is not None:
-                if not self.piece_pose_future.done():
-                    return
-                try:
-                    response = self.piece_pose_future.result()
-                    if not response.success:
-                        self.get_logger().warning("Gazebo rejected a held-piece pose update")
-                except Exception as exc:
-                    self.get_logger().warning(f"Held-piece pose update failed: {exc}")
-                self.piece_pose_future = None
-            piece_name = self.held_piece
-            positions = self.current_positions.copy()
+    def set_piece_attachment(self, name: str, attached: bool) -> None:
+        publisher = self.attach_pubs[name] if attached else self.detach_pubs[name]
+        connection_deadline = time.monotonic() + 5.0
+        while publisher.get_subscription_count() == 0 and time.monotonic() < connection_deadline:
+            time.sleep(0.05)
+        if publisher.get_subscription_count() == 0:
+            raise RuntimeError(f"Gazebo attachment bridge is unavailable for {name}")
 
-        tcp_position = self.chain.forward(positions)[:3, 3]
-        request = self.piece_pose_request(piece_name, tcp_position + HELD_PIECE_TCP_OFFSET)
-        with self.positions_lock:
-            # The piece may have been released while FK was being evaluated.
-            if self.held_piece == piece_name:
-                self.piece_pose_future = self.pose_client.call_async(request)
+        def publish_and_wait(command_publisher, expected: bool, timeout: float) -> bool:
+            with self.attachment_condition:
+                self.attachment_states[name] = None
+            command_publisher.publish(Empty())
+            deadline = time.monotonic() + timeout
+            with self.attachment_condition:
+                while self.attachment_states[name] is not expected:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0.0:
+                        return False
+                    self.attachment_condition.wait(min(remaining, 0.1))
+                return True
 
-    def attach_piece(self, name: str) -> None:
-        with self.positions_lock:
-            if self.current_positions is None:
-                raise RuntimeError("joint state is unavailable while grasping piece")
-            tcp_position = self.chain.forward(self.current_positions)[:3, 3]
-        self.set_piece_pose(name, tcp_position + HELD_PIECE_TCP_OFFSET)
-        with self.positions_lock:
-            self.held_piece = name
+        if publish_and_wait(publisher, attached, 1.0):
+            return
 
-    def stop_tracking_piece(self) -> None:
-        """Stop attachment and drain the last asynchronous Gazebo update."""
-        with self.positions_lock:
-            self.held_piece = None
-            pending = self.piece_pose_future
-        if pending is not None:
-            response = self._wait_future(pending, 8.0, "final held-piece pose update")
-            if not response.success:
-                raise RuntimeError("Gazebo rejected the final held-piece pose update")
-        with self.positions_lock:
-            if self.piece_pose_future is pending:
-                self.piece_pose_future = None
+        # The plugin reports only transitions, not its current state. On a game
+        # restart the requested state may already be active, so force one
+        # opposite transition and then retry the requested command.
+        opposite = self.detach_pubs[name] if attached else self.attach_pubs[name]
+        if not publish_and_wait(opposite, not attached, 2.0):
+            raise TimeoutError(f"Gazebo attachment state is unavailable for {name}")
+        if not publish_and_wait(publisher, attached, 2.0):
+            raise TimeoutError(
+                f"Gazebo did not {'attach' if attached else 'detach'} {name}"
+            )
 
     def send_trajectory(
         self, client: ActionClient, joints: Sequence[str], positions: Sequence[float], duration: float
@@ -272,7 +275,15 @@ class TicTacToeRobot(Node):
         else:
             with self.positions_lock:
                 seed = HOME.copy() if self.current_positions is None else self.current_positions.copy()
-            positions = self.chain.inverse(xyz, self.grasp_rotation, seed, preferred=HOME)
+            # Prefer the current posture. Pulling each waypoint toward HOME made
+            # the redundant seventh axis rotate the wrist during lateral moves.
+            positions = self.chain.inverse(
+                xyz,
+                self.grasp_rotation,
+                seed,
+                preferred=seed,
+                preference_weights=np.array([1.0, 1.0, 1.0, 1.0, 3.0, 1.0, 12.0]),
+            )
         self.send_trajectory(
             self.arm_client, ARM_JOINTS, positions,
             duration or float(self.get_parameter("motion_duration").value),
@@ -284,16 +295,20 @@ class TicTacToeRobot(Node):
         self.send_trajectory(self.gripper_client, GRIPPER_JOINTS, [value, value], duration)
 
     def reset_pieces(self) -> None:
-        self.stop_tracking_piece()
         for index, (x, y) in enumerate(X_SUPPLY, start=1):
-            self.set_piece_pose(f"x_piece_{index}", (x, y, SUPPLY_PIECE_Z))
+            self.set_piece_pose(f"x_piece_{index}", (x, y, X_SUPPLY_PIECE_Z))
         for index, (x, y) in enumerate(O_SUPPLY, start=1):
-            self.set_piece_pose(f"o_piece_{index}", (x, y, SUPPLY_PIECE_Z))
+            name = f"o_piece_{index}"
+            self.set_piece_attachment(name, False)
+            self.set_piece_pose(name, (x, y, O_SUPPLY_PIECE_Z))
 
     def place_robot_piece(self, piece_index: int, cell: int) -> None:
-        piece_name = f"o_piece_{piece_index + 1}"
-        sx, sy = O_SUPPLY[piece_index]
-        tx, ty, tz = CELL_POSITIONS[cell]
+        # Consume the row from its far end: O5, O4, O3, O2, then O1.
+        supply_index = len(O_SUPPLY) - 1 - piece_index
+        piece_name = f"o_piece_{supply_index + 1}"
+        sx, sy = O_SUPPLY[supply_index]
+        tx, ty = CELL_POSITIONS[cell]
+        tz = O_BOARD_PIECE_Z
         self.publish_status(f"Robot is placing O in cell {cell + 1}")
         base_duration = float(self.get_parameter("motion_duration").value)
 
@@ -305,21 +320,20 @@ class TicTacToeRobot(Node):
             self.move_arm((sx, sy, 0.24))
             self.move_arm((sx, sy, SUPPLY_GRASP_Z), motion_time(0.75))
             self.move_gripper(False)
-            self.attach_piece(piece_name)
+            self.set_piece_attachment(piece_name, True)
             self.move_arm((sx, sy, 0.24), motion_time(0.80))
             self.move_arm((tx, ty, 0.24))
             self.move_arm((tx, ty, BOARD_GRASP_Z), motion_time(0.75))
-            # Keep the ring constrained while the fingers clear its outside
-            # diameter. Detaching before opening lets contact tip it upright.
             self.move_gripper(True)
-            self.stop_tracking_piece()
-            # Place directly at the board height after the last tracking request
-            # has completed. This prevents a late update and visible falling.
+            self.set_piece_attachment(piece_name, False)
+            # Correct only the final resting pose; transport itself is handled
+            # by Gazebo's native fixed joint without asynchronous pose updates.
             self.set_piece_pose(piece_name, (tx, ty, tz))
             self.move_arm((tx, ty, 0.24), motion_time(0.80))
         finally:
             # HOME is a safety invariant after every robot turn, including failures.
-            self.stop_tracking_piece()
+            if self.attachment_states[piece_name]:
+                self.set_piece_attachment(piece_name, False)
             self.move_arm(None, base_duration)
 
     def prompt_move(self, board: Tuple[str, ...]) -> int:
@@ -349,7 +363,8 @@ class TicTacToeRobot(Node):
                 human_move = self.prompt_move(board)
                 expected = list(board)
                 expected[human_move] = "x"
-                x, y, z = CELL_POSITIONS[human_move]
+                x, y = CELL_POSITIONS[human_move]
+                z = X_BOARD_PIECE_Z
                 self.set_piece_pose(f"x_piece_{x_count + 1}", (x, y, z))
                 x_count += 1
                 board = self.wait_for_board(tuple(expected))

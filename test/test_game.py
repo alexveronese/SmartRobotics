@@ -27,6 +27,23 @@ def test_panda_is_fixed_to_world():
     assert mount.find("child").attrib["link"] == "panda_link0"
 
 
+def test_panda_uses_native_detachable_joints_for_o_pieces():
+    root = ET.fromstring(_panda_description())
+    plugins = [
+        plugin
+        for plugin in root.findall("gazebo/plugin")
+        if plugin.attrib["filename"] == "gz-sim-detachable-joint-system"
+    ]
+
+    assert len(plugins) == 5
+    for index in range(1, 6):
+        plugin = plugins[index - 1]
+        assert plugin.attrib["name"] == "gz::sim::systems::DetachableJoint"
+        assert plugin.findtext("parent_link") == "panda_link7"
+        assert plugin.findtext("child_model") == f"o_piece_{index}"
+        assert plugin.findtext("child_link") == f"o_piece_link_{index}"
+
+
 def test_result_detection():
     assert game_result(("x", "x", "x", "", "o", "", "o", "", "")) == "x"
     assert game_result(("x", "o", "x", "x", "o", "o", "o", "x", "x")) == "draw"
@@ -69,10 +86,10 @@ def test_all_pick_and_place_coordinates_are_reachable():
     home = np.array([0.0, -0.78, 0.0, -2.35, 0.0, 1.57, 0.78])
     grasp_rotation = chain.forward(home)[:3, :3]
     points = [
-        (0.63 - row * 0.10, 0.10 - col * 0.10, 0.032)
+        (0.67 - row * 0.10, 0.10 - col * 0.10, 0.031)
         for row in range(3) for col in range(3)
     ]
-    points += [(x, y, 0.016) for x in (0.31, 0.39, 0.47) for y in (-0.29, -0.21)]
+    points += [(x, -0.26, 0.015) for x in (0.31, 0.41, 0.51, 0.61, 0.71)]
     for x, y, grasp_z in points:
         above = chain.inverse([x, y, 0.24], grasp_rotation, home, preferred=home)
         grasp = chain.inverse([x, y, grasp_z], grasp_rotation, above, preferred=home)

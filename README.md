@@ -66,26 +66,37 @@ ros2 control list_controllers
 ## Scene dimensions
 
 - Panda base flange: `Z = 0.000 m`, fixed to Gazebo world on a dedicated 160 mm-radius pedestal.
+- Ground plane: `2 x 2 m`, with a muted-green surface.
 - Tabletop: `0.65 x 0.68 x 0.05 m`, with its top at `Z = 0.000 m`.
-- Table X range: `0.205–0.855 m`; this leaves 45 mm between the tabletop and the pedestal.
+- Table X range: `0.245–0.895 m`; this leaves 85 mm between the tabletop and the pedestal.
 - Board: `0.32 x 0.32 x 0.016 m`, top at `Z = 0.016 m`.
-- Pieces: `68 mm` outside diameter, `36 mm` hole, and `14 mm` height.
-- Piece centre: `Z = 0.007 m` on the table and `Z = 0.023 m` on the board.
-- Panda TCP grasp target: `Z = 0.016 m` at the supply and `Z = 0.032 m` at the board.
+- O pieces: solid blue cylinders, `68 mm` diameter and `30 mm` height.
+- O centre: `Z = 0.015 m` on the table and `Z = 0.031 m` on the board.
+- Panda TCP grasp target: the O middle height, `Z = 0.015 m` at the supply and `Z = 0.031 m` at the board.
 - Safe approach height: `Z = 0.240 m`.
 
-The O model follows the Panda TCP continuously while the gripper is closed and
-is released directly at the piece-centre height. Motion speed is controlled by
+The O model is attached to the Panda with Gazebo's native detachable fixed joint
+while the gripper is closed and is released directly at the piece-centre height.
+Motion speed is controlled by
 `motion_duration` and `gripper_duration` in `config/game.yaml`; smaller values
 are faster. The supplied `1.25 s` / `0.45 s` settings are a moderate Gazebo
 speed-up. Keep `motion_duration` at or above roughly `0.8 s` unless controller
 tracking has been verified on the local machine.
 
 The Panda opens to an `80 mm` aperture and closes to a commanded `66 mm`
-aperture to grip the O around its external diameter. Supply rows are separated
-by `80 mm`, so adjacent pieces no longer overlap before pickup. O models are
-static pose-driven bodies because their attachment is controlled by the TCP
-pose service; this prevents simulated velocity from tipping a released ring.
+aperture to grip the O around its external diameter. X and O use matching
+five-piece rows, mirrored at `Y = +/-0.26 m`, with `100 mm` between adjacent
+centres so the gripper has room to approach each piece. The robot consumes its
+row from the far end (`O5` through `O1`). O models are
+dynamic bodies transported by the native fixed joint, avoiding delayed pose
+updates and the previous magnetic-following appearance.
+
+Gazebo's DART backend may print `NameManager::issueNewName` messages for
+`fixed(1)` through `fixed(4)` when the Panda model is created. They are
+informational auto-renames: Gazebo 8.11's stock detachable-joint plugin
+hardcodes its internal joint name to `fixed` and exposes no custom-name option.
+The joints remain functional. Piece links and collisions use unique names, so
+the former `link:c` duplicate messages no longer occur.
 
 These heights match the base coordinate convention used by the Panda description. They intentionally replace the old custom-arm scene, whose table top was at `Z = 0.20 m`.
 

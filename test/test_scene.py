@@ -19,11 +19,15 @@ def test_table_height_and_panda_base_clearance():
     table_top = table_pose[2] + table_size[2] / 2.0
     table_near_edge = table_pose[0] - table_size[0] / 2.0
     panda_base_radius = float(models["robot_pedestal"].findtext("link/collision/geometry/cylinder/radius"))
+    ground_size = _numbers(models["ground_plane"].findtext("link/collision/geometry/box/size"))
+    ground_colour = _numbers(models["ground_plane"].findtext("link/visual/material/diffuse"))
 
     assert table_top == pytest.approx(0.0)
-    assert table_near_edge == pytest.approx(0.205)
+    assert table_near_edge == pytest.approx(0.245)
     assert panda_base_radius == pytest.approx(0.16)
-    assert table_near_edge - panda_base_radius == pytest.approx(0.045)
+    assert table_near_edge - panda_base_radius == pytest.approx(0.085)
+    assert ground_size == pytest.approx([2.0, 2.0, 0.04])
+    assert ground_colour == pytest.approx([0.22, 0.42, 0.25, 1.0])
 
 
 def test_board_and_piece_heights_follow_table_surface():
@@ -36,10 +40,10 @@ def test_board_and_piece_heights_follow_table_surface():
     piece_z = _numbers(models["o_piece_1"].findtext("pose"))[2]
 
     assert board_z + board_thickness / 2.0 == pytest.approx(0.016)
-    assert piece_z == pytest.approx(0.007)
+    assert piece_z == pytest.approx(0.015)
 
 
-def test_o_pieces_are_physical_rings_with_clear_supply_spacing():
+def test_pieces_use_matching_rows_and_o_pieces_have_clear_grasp_spacing():
     root = ET.parse(Path(__file__).parents[1] / "worlds" / "tic_tac_toe.sdf").getroot()
     models = {model.attrib["name"]: model for model in root.find("world").findall("model")}
     pieces = [models[f"o_piece_{index}"] for index in range(1, 6)]
@@ -48,16 +52,31 @@ def test_o_pieces_are_physical_rings_with_clear_supply_spacing():
         link = piece.find("link")
         collisions = link.findall("collision")
         visuals = link.findall("visual")
-        assert len(collisions) == 12
-        assert len(visuals) == 12
-        assert piece.findtext("static") == "true"
-        assert all(item.find("geometry/box") is not None for item in collisions + visuals)
-        assert link.find("visual[@name='inner']") is None
+        assert len(collisions) == 1
+        assert len(visuals) == 1
+        assert piece.findtext("static") in (None, "false")
+        assert float(link.findtext("inertial/mass")) == pytest.approx(0.05)
+        for item in collisions + visuals:
+            cylinder = item.find("geometry/cylinder")
+            assert float(cylinder.findtext("radius")) == pytest.approx(0.034)
+            assert float(cylinder.findtext("length")) == pytest.approx(0.030)
 
     positions = [_numbers(piece.findtext("pose"))[:2] for piece in pieces]
+    x_positions = [
+        _numbers(models[f"x_piece_{index}"].findtext("pose"))[:2]
+        for index in range(1, 6)
+    ]
+    assert [position[0] for position in x_positions] == pytest.approx(
+        [0.31, 0.41, 0.51, 0.61, 0.71]
+    )
+    assert [position[0] for position in positions] == pytest.approx(
+        [0.31, 0.41, 0.51, 0.61, 0.71]
+    )
+    assert [position[1] for position in x_positions] == pytest.approx([0.26] * 5)
+    assert [position[1] for position in positions] == pytest.approx([-0.26] * 5)
     minimum_distance = min(
         ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
         for index, (ax, ay) in enumerate(positions)
         for bx, by in positions[index + 1:]
     )
-    assert minimum_distance == pytest.approx(0.08)
+    assert minimum_distance == pytest.approx(0.10)

@@ -40,6 +40,14 @@ def generate_launch_description():
             "/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image",
             "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
             "/world/tic_tac_toe/set_pose@ros_gz_interfaces/srv/SetEntityPose",
+        ] + [
+            mapping
+            for index in range(1, 6)
+            for mapping in (
+                f"/o_piece_{index}/attach@std_msgs/msg/Empty]gz.msgs.Empty",
+                f"/o_piece_{index}/detach@std_msgs/msg/Empty]gz.msgs.Empty",
+                f"/o_piece_{index}/state@std_msgs/msg/String[gz.msgs.StringMsg",
+            )
         ],
     )
     delayed_robot_and_controllers = TimerAction(

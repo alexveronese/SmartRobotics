@@ -149,11 +149,19 @@ class SerialChain:
                 jacobian[:3, index] = axes[index]
         return transform, jacobian
 
-    def inverse(self, target_position, target_rotation, seed, preferred=None, max_iterations=450):
+    def inverse(
+        self, target_position, target_rotation, seed, preferred=None,
+        preference_weights=None, max_iterations=450,
+    ):
         target_position = np.asarray(target_position, dtype=float)
         target_rotation = np.asarray(target_rotation, dtype=float)
         seed = np.asarray(seed, dtype=float)
         preferred = seed.copy() if preferred is None else np.asarray(preferred, dtype=float)
+        preference_weights = (
+            np.ones_like(seed)
+            if preference_weights is None
+            else np.asarray(preference_weights, dtype=float)
+        )
         margin, orientation_weight, damping = 1e-4, 0.32, 0.035
         candidates = [seed.copy(), preferred.copy(), 0.65 * seed + 0.35 * preferred]
         best, best_score = None, math.inf
@@ -174,7 +182,7 @@ class SerialChain:
                     return positions
                 system = weighted_jacobian @ weighted_jacobian.T + damping * damping * np.eye(6)
                 step = weighted_jacobian.T @ np.linalg.solve(system, error)
-                step += 0.012 * (preferred - positions)
+                step += 0.012 * preference_weights * (preferred - positions)
                 largest = np.max(np.abs(step))
                 if largest > 0.13:
                     step *= 0.13 / largest
