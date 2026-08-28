@@ -1,13 +1,13 @@
 # Camera-guided tic-tac-toe robot
 
-This ROS 2 Jazzy demo uses a seven-axis Franka Emika Panda to play tic-tac-toe on a Gazebo table. The human is red **X**, the robot is blue **O**, and cells are numbered from 1 to 9 in reading order as seen by the overhead camera.
+This ROS 2 Jazzy demo uses a seven-axis Franka Emika Panda to play a best-of-three tic-tac-toe match on a Gazebo table. The human is red **X**, the robot is blue **O**, and cells are numbered from 1 to 9 in reading order as seen by the overhead camera.
 
 The camera is the source of truth for the board. For every terminal move, the
 robot picks an X from the human supply and places it in the requested cell;
 OpenCV confirms it before the minimax player selects and places O. The robot
-returns to `HOME` after every manipulation. When the match ends, it physically
-returns every played piece to its original supply slot. Minimax makes the robot
-unbeatable.
+returns to `HOME` after every manipulation. After every round, including the
+last one, it physically returns every played piece to its original supply slot.
+Minimax makes the robot unbeatable.
 
 ## Native Ubuntu 24.04 / ROS 2 Jazzy setup
 
@@ -38,7 +38,7 @@ colcon build --symlink-install --base-paths .
 source install/setup.bash
 ```
 
-## Run a match
+## Run a best-of-three match
 
 Start simulation and controllers in terminal 1:
 
@@ -55,7 +55,12 @@ ros2 run nuovo_progetto tic_tac_toe_game.py --ros-args \
   --params-file $(ros2 pkg prefix nuovo_progetto)/share/nuovo_progetto/config/game.yaml
 ```
 
-Enter an available number when prompted. The interactive node resets all pieces to their supply locations when it starts, so restart it to begin a clean match. Stop both terminals with `Ctrl-C`.
+Enter an available number when prompted. X opens rounds 1 and 3; the robot opens
+round 2. After each round the robot clears the board and returns HOME. If neither
+side has already reached two wins, press Enter to start the next round. Draws
+complete a round but award no win; after three rounds, the side with more wins
+takes the match, or the match is declared drawn when the scores are equal. Stop
+both terminals with `Ctrl-C`.
 
 Useful inspection commands:
 

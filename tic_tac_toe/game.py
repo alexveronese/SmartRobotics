@@ -12,6 +12,8 @@ WINNING_LINES = (
 )
 # This order makes equally-good play look natural and deterministic.
 MOVE_PREFERENCE = (4, 0, 2, 6, 8, 1, 3, 5, 7)
+BEST_OF_THREE_ROUNDS = 3
+WINS_TO_CLINCH = 2
 
 
 def normalise_board(cells: Iterable[str]) -> Board:
@@ -67,3 +69,33 @@ def choose_best_move(cells: Sequence[str]) -> int:
             best_score = score
             best_move = move
     return best_move
+
+
+def best_of_three_result(round_results: Sequence[str]) -> Optional[str]:
+    """Return the series winner, 'draw', or None while another round is needed."""
+    results = tuple(str(result).lower() for result in round_results)
+    if len(results) > BEST_OF_THREE_ROUNDS or any(
+        result not in ("x", "o", "draw") for result in results
+    ):
+        raise ValueError("a best-of-three series accepts up to three x, o, or draw results")
+
+    x_wins = results.count("x")
+    o_wins = results.count("o")
+    if x_wins >= WINS_TO_CLINCH:
+        return "x"
+    if o_wins >= WINS_TO_CLINCH:
+        return "o"
+    if len(results) < BEST_OF_THREE_ROUNDS:
+        return None
+    if x_wins > o_wins:
+        return "x"
+    if o_wins > x_wins:
+        return "o"
+    return "draw"
+
+
+def best_of_three_starter(round_number: int) -> str:
+    """Alternate the opening turn: X in rounds 1/3 and O in round 2."""
+    if not 1 <= round_number <= BEST_OF_THREE_ROUNDS:
+        raise ValueError("round number must be between 1 and 3")
+    return "x" if round_number % 2 else "o"

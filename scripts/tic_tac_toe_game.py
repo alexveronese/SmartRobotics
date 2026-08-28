@@ -25,7 +25,13 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 import xacro
 import numpy as np
 
-from tic_tac_toe.game import choose_best_move, game_result
+from tic_tac_toe.game import (
+    BEST_OF_THREE_ROUNDS,
+    best_of_three_result,
+    best_of_three_starter,
+    choose_best_move,
+    game_result,
+)
 from tic_tac_toe.kinematics import SerialChain
 from tic_tac_toe.vision import detect_board
 
@@ -442,52 +448,102 @@ class TicTacToeRobot(Node):
             print("Invalid or occupied cell. Please enter an available number from 1 to 9.", flush=True)
         raise RuntimeError("ROS is shutting down")
 
+    def prompt_next_round(self, round_number: int, starter: str) -> None:
+        starter_text = "you move first" if starter == "x" else "the robot moves first"
+        try:
+            input(
+                f"Round {round_number} is ready ({starter_text}). "
+                "Press Enter to continue: "
+            )
+        except EOFError as exc:
+            raise RuntimeError(
+                "standard input closed; run this node in an interactive terminal"
+            ) from exc
+        if not rclpy.ok() or self.stopping:
+            raise RuntimeError("ROS is shutting down")
+
+    def play_round(self, round_number: int, starter: str):
+        """Play one camera-confirmed round and return its result and pieces."""
+        board = self.wait_for_board(tuple("" for _ in range(9)), timeout=12.0)
+        piece_counts = {"x": 0, "o": 0}
+        placed_pieces = []
+        starter_text = "you move first" if starter == "x" else "robot O moves first"
+        self.publish_status(
+            f"Round {round_number}/{BEST_OF_THREE_ROUNDS}: {starter_text}"
+        )
+        print("\n" + render_board(board) + "\n", flush=True)
+
+        turn = starter
+        while rclpy.ok() and not self.stopping:
+            if turn == "x":
+                move = self.prompt_move(board)
+            else:
+                move = choose_best_move(board)
+
+            expected = list(board)
+            expected[move] = turn
+            turn_index = piece_counts[turn]
+            self.place_game_piece(turn, turn_index, move)
+            placed_pieces.append((turn, turn_index, move))
+            piece_counts[turn] += 1
+            board = self.wait_for_board(tuple(expected))
+            print("\n" + render_board(board) + "\n", flush=True)
+
+            result = game_result(board)
+            if result is not None:
+                return result, placed_pieces, board
+            turn = "o" if turn == "x" else "x"
+
+        raise RuntimeError("ROS is shutting down")
+
     def game_loop(self) -> None:
         try:
             self.publish_status("Initialising pieces and controllers")
             self.reset_pieces()
             self.move_gripper(True)
             self.move_arm(None, 1.0)
-            board = self.wait_for_board(tuple("" for _ in range(9)), timeout=12.0)
-            x_count = 0
-            o_count = 0
-            placed_pieces = []
-            self.publish_status("New game: you are X and move first")
-            print("\n" + render_board(board) + "\n", flush=True)
+            self.wait_for_board(tuple("" for _ in range(9)), timeout=12.0)
+            round_results = []
+            match_result = None
+            score = "X 0 - O 0 (draws 0)"
+            self.publish_status("Best-of-three match started; you are X")
 
-            while rclpy.ok() and not self.stopping:
-                human_move = self.prompt_move(board)
-                expected = list(board)
-                expected[human_move] = "x"
-                self.place_game_piece("x", x_count, human_move)
-                placed_pieces.append(("x", x_count, human_move))
-                x_count += 1
-                board = self.wait_for_board(tuple(expected))
-                result = game_result(board)
-                if result is not None:
-                    break
+            for round_number in range(1, BEST_OF_THREE_ROUNDS + 1):
+                starter = best_of_three_starter(round_number)
+                if round_number > 1:
+                    self.prompt_next_round(round_number, starter)
 
-                print("\n" + render_board(board) + "\n", flush=True)
-                robot_move = choose_best_move(board)
-                expected = list(board)
-                expected[robot_move] = "o"
-                self.place_game_piece("o", o_count, robot_move)
-                placed_pieces.append(("o", o_count, robot_move))
-                o_count += 1
-                board = self.wait_for_board(tuple(expected))
-                print("\n" + render_board(board) + "\n", flush=True)
-                result = game_result(board)
-                if result is not None:
-                    break
+                result, placed_pieces, board = self.play_round(round_number, starter)
+                round_results.append(result)
+                round_message = {
+                    "x": "You win the round!",
+                    "o": "Robot wins the round!",
+                    "draw": "Round drawn.",
+                }[result]
+                self.publish_status(f"ROUND {round_number} OVER: {round_message}")
+                print(f"{round_message}", flush=True)
 
-            result = game_result(board)
-            message = {"x": "You win!", "o": "Robot wins!", "draw": "Draw game."}.get(result, "Game stopped.")
-            self.publish_status(f"GAME OVER: {message}")
-            print(f"\n{render_board(board)}\n{message}", flush=True)
-            if result is not None and not self.stopping:
+                # Cleanup remains mandatory between rounds and after the last.
                 self.clear_board(placed_pieces)
                 self.wait_for_board(tuple("" for _ in range(9)), timeout=12.0)
-                self.publish_status("Cleanup complete; all pieces are back in their supply positions")
+                score = (
+                    f"X {round_results.count('x')} - "
+                    f"O {round_results.count('o')} "
+                    f"(draws {round_results.count('draw')})"
+                )
+                self.publish_status(f"Cleanup complete; series score: {score}")
+
+                match_result = best_of_three_result(round_results)
+                if match_result is not None:
+                    break
+
+            final_message = {
+                "x": "You win the best-of-three match!",
+                "o": "Robot wins the best-of-three match!",
+                "draw": "The best-of-three match is drawn.",
+            }[match_result]
+            self.publish_status(f"MATCH OVER: {final_message}")
+            print(f"\n{final_message}\nFinal score: {score}", flush=True)
         except Exception as exc:
             self.get_logger().error(f"Game aborted: {exc}")
             self.publish_status(f"ERROR: {exc}")

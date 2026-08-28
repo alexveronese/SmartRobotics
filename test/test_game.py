@@ -7,7 +7,12 @@ import numpy as np
 import pytest
 import xacro
 
-from tic_tac_toe.game import choose_best_move, game_result
+from tic_tac_toe.game import (
+    best_of_three_result,
+    best_of_three_starter,
+    choose_best_move,
+    game_result,
+)
 from tic_tac_toe.kinematics import SerialChain
 
 
@@ -60,6 +65,24 @@ def test_result_detection():
 def test_robot_takes_immediate_win_and_blocks():
     assert choose_best_move(("o", "o", "", "x", "x", "", "", "", "")) == 2
     assert choose_best_move(("x", "x", "", "", "o", "", "", "", "")) == 2
+    assert choose_best_move(("",) * 9) == 4
+
+
+def test_best_of_three_scoring_and_alternating_starters():
+    assert [best_of_three_starter(round_number) for round_number in (1, 2, 3)] == [
+        "x", "o", "x"
+    ]
+    assert best_of_three_result([]) is None
+    assert best_of_three_result(["o", "draw"]) is None
+    assert best_of_three_result(["o", "o"]) == "o"
+    assert best_of_three_result(["draw", "x", "x"]) == "x"
+    assert best_of_three_result(["o", "draw", "draw"]) == "o"
+    assert best_of_three_result(["x", "o", "draw"]) == "draw"
+    assert best_of_three_result(["draw", "draw", "draw"]) == "draw"
+    with pytest.raises(ValueError):
+        best_of_three_starter(4)
+    with pytest.raises(ValueError):
+        best_of_three_result(["o", "invalid"])
 
 
 def test_minimax_robot_cannot_be_beaten():
@@ -163,3 +186,65 @@ def test_cleanup_restores_piece_one_last_and_normalizes_after_home():
     assert pose_events
     assert all(index > home_index for index, _ in pose_events)
     assert pose_events[-1][1] == ("pose", "x_piece_1", (0.39, 0.26, 0.015))
+
+
+def test_best_of_three_cleans_final_round_before_early_match_end():
+    script = runpy.run_path(
+        str(Path(__file__).parents[1] / "scripts" / "tic_tac_toe_game.py")
+    )
+    robot_class = script["TicTacToeRobot"]
+
+    class FakeRobot:
+        def __init__(self):
+            self.events = []
+            self.results = iter(("o", "o"))
+
+        def publish_status(self, message):
+            self.events.append(("status", message))
+
+        def reset_pieces(self):
+            self.events.append(("reset",))
+
+        def move_gripper(self, opened):
+            self.events.append(("gripper", opened))
+
+        def move_arm(self, xyz=None, duration=None):
+            self.events.append(("move", xyz))
+
+        def wait_for_board(self, expected=None, timeout=None):
+            self.events.append(("wait", expected))
+            return tuple("" for _ in range(9))
+
+        def prompt_next_round(self, round_number, starter):
+            self.events.append(("prompt", round_number, starter))
+
+        def play_round(self, round_number, starter):
+            self.events.append(("play", round_number, starter))
+            result = next(self.results)
+            return result, [("o", 0, 4)], ("",) * 9
+
+        def clear_board(self, placed_pieces):
+            self.events.append(("clear", tuple(placed_pieces)))
+
+        def get_logger(self):
+            raise AssertionError("game loop unexpectedly failed")
+
+    robot = FakeRobot()
+    robot_class.game_loop(robot)
+
+    assert [event for event in robot.events if event[0] == "play"] == [
+        ("play", 1, "x"),
+        ("play", 2, "o"),
+    ]
+    assert [event for event in robot.events if event[0] == "prompt"] == [
+        ("prompt", 2, "o")
+    ]
+    assert len([event for event in robot.events if event[0] == "clear"]) == 2
+    match_over_index = next(
+        index for index, event in enumerate(robot.events)
+        if event[0] == "status" and event[1].startswith("MATCH OVER:")
+    )
+    final_clear_index = max(
+        index for index, event in enumerate(robot.events) if event[0] == "clear"
+    )
+    assert final_clear_index < match_over_index
