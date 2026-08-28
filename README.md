@@ -2,7 +2,12 @@
 
 This ROS 2 Jazzy demo uses a seven-axis Franka Emika Panda to play tic-tac-toe on a Gazebo table. The human is red **X**, the robot is blue **O**, and cells are numbered from 1 to 9 in reading order as seen by the overhead camera.
 
-The camera is the source of truth for the board. Each requested X move is applied to the simulated piece, then OpenCV must observe and confirm it before the minimax player selects the robot response. The robot performs an approach, grasp, transfer, release, retreat sequence through `ros2_control` and returns to `HOME` after every O turn. Minimax makes the robot unbeatable.
+The camera is the source of truth for the board. For every terminal move, the
+robot picks an X from the human supply and places it in the requested cell;
+OpenCV confirms it before the minimax player selects and places O. The robot
+returns to `HOME` after every manipulation. When the match ends, it physically
+returns every played piece to its original supply slot. Minimax makes the robot
+unbeatable.
 
 ## Native Ubuntu 24.04 / ROS 2 Jazzy setup
 
@@ -65,19 +70,19 @@ ros2 control list_controllers
 
 ## Scene dimensions
 
-- Panda base flange: `Z = 0.000 m`, fixed to Gazebo world on a dedicated 160 mm-radius pedestal.
+- Panda base flange: `Z = 0.000 m`, fixed to Gazebo world on a dedicated 120 mm-radius pedestal.
 - Ground plane: `2 x 2 m`, with a muted-green surface.
 - Tabletop: `0.65 x 0.68 x 0.05 m`, with its top at `Z = 0.000 m`.
-- Table X range: `0.245–0.895 m`; this leaves 85 mm between the tabletop and the pedestal.
+- Table X range: `0.245–0.895 m`; this leaves 165 mm between the tabletop and the pedestal.
 - Board: `0.32 x 0.32 x 0.016 m`, top at `Z = 0.016 m`.
-- X and O pieces are `30 mm` tall; O pieces are solid blue cylinders with a
-  `68 mm` diameter.
+- X and O pieces are `30 mm` tall and `68 mm` wide. O pieces are solid blue
+  cylinders; X pieces are board-coloured squares with a thin red X on top.
 - Piece centre: `Z = 0.015 m` on the table and `Z = 0.031 m` on the board.
-- Panda TCP grasp target: the O middle height, `Z = 0.015 m` at the supply and `Z = 0.031 m` at the board.
+- Panda TCP grasp target: the piece middle height, `Z = 0.015 m` at the supply and `Z = 0.031 m` at the board.
 - Safe approach height: `Z = 0.240 m`.
 
-The O model is attached to the Panda with Gazebo's native detachable fixed joint
-while the gripper is closed and is released directly at the piece-centre height.
+Each X or O model is attached to the Panda with Gazebo's native detachable fixed
+joint while the gripper is closed and is released directly at piece-centre height.
 Motion speed is controlled by
 `motion_duration` and `gripper_duration` in `config/game.yaml`; smaller values
 are faster. The supplied `1.25 s` / `0.45 s` settings are a moderate Gazebo
@@ -85,15 +90,23 @@ speed-up. Keep `motion_duration` at or above roughly `0.8 s` unless controller
 tracking has been verified on the local machine.
 
 The Panda opens to an `80 mm` aperture and closes to a commanded `66 mm`
-aperture to grip the O around its external diameter. X and O use matching
-five-piece rows, mirrored at `Y = +/-0.26 m`, with `100 mm` between adjacent
-centres so the gripper has room to approach each piece. The robot consumes its
-row from the far end (`O5` through `O1`). O models are
-dynamic bodies transported by the native fixed joint, avoiding delayed pose
+aperture to grip either 68 mm piece around its external width. X and O use matching
+five-piece rows centered on the board at `X = 0.57 m`, mirrored at
+`Y = +/-0.26 m`, with `90 mm` between adjacent
+centres so the gripper has room to approach each piece. The robot consumes both
+rows from the far end (`X5` / `O5` through `X1` / `O1`). All pieces are
+dynamic bodies transported by native fixed joints, avoiding delayed pose
 updates and the previous magnetic-following appearance.
+During cleanup, the Panda restores each row from piece 5 toward piece 1, moves
+between returned pieces through a central `Z = 0.340 m` clearance waypoint,
+and returns to `HOME` only after the entire board is clear. Once HOME, the final
+supply poses are normalized to remove any small physics drift caused while the
+gripper placed adjacent pieces. IK first uses the current posture and automatically retries
+from a HOME numerical seed if the local solve cannot converge; this retry does
+not command a physical HOME move.
 
 Gazebo's DART backend may print `NameManager::issueNewName` messages for
-`fixed(1)` through `fixed(4)` when the Panda model is created. They are
+temporary `fixed(n)` joints when the Panda model is created. They are
 informational auto-renames: Gazebo 8.11's stock detachable-joint plugin
 hardcodes its internal joint name to `fixed` and exposes no custom-name option.
 The joints remain functional. Piece links and collisions use unique names, so
