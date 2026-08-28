@@ -42,11 +42,12 @@ def generate_launch_description():
             "/world/tic_tac_toe/set_pose@ros_gz_interfaces/srv/SetEntityPose",
         ] + [
             mapping
+            for mark in ("x", "o")
             for index in range(1, 6)
             for mapping in (
-                f"/o_piece_{index}/attach@std_msgs/msg/Empty]gz.msgs.Empty",
-                f"/o_piece_{index}/detach@std_msgs/msg/Empty]gz.msgs.Empty",
-                f"/o_piece_{index}/state@std_msgs/msg/String[gz.msgs.StringMsg",
+                f"/{mark}_piece_{index}/attach@std_msgs/msg/Empty]gz.msgs.Empty",
+                f"/{mark}_piece_{index}/detach@std_msgs/msg/Empty]gz.msgs.Empty",
+                f"/{mark}_piece_{index}/state@std_msgs/msg/String[gz.msgs.StringMsg",
             )
         ],
     )

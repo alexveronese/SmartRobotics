@@ -34,20 +34,25 @@
     <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
       <parameters>$(arg controllers_file)</parameters>
     </plugin>
-    <xacro:macro name="o_piece_joint" params="index">
+    <xacro:macro name="piece_joint" params="mark index">
       <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
         <parent_link>panda_link7</parent_link>
-        <child_model>o_piece_${index}</child_model>
-        <child_link>o_piece_link_${index}</child_link>
-        <attach_topic>/o_piece_${index}/attach</attach_topic>
-        <detach_topic>/o_piece_${index}/detach</detach_topic>
-        <output_topic>/o_piece_${index}/state</output_topic>
+        <child_model>${mark}_piece_${index}</child_model>
+        <child_link>${mark}_piece_link_${index}</child_link>
+        <attach_topic>/${mark}_piece_${index}/attach</attach_topic>
+        <detach_topic>/${mark}_piece_${index}/detach</detach_topic>
+        <output_topic>/${mark}_piece_${index}/state</output_topic>
       </plugin>
     </xacro:macro>
-    <xacro:o_piece_joint index="1"/>
-    <xacro:o_piece_joint index="2"/>
-    <xacro:o_piece_joint index="3"/>
-    <xacro:o_piece_joint index="4"/>
-    <xacro:o_piece_joint index="5"/>
+    <xacro:piece_joint mark="x" index="1"/>
+    <xacro:piece_joint mark="x" index="2"/>
+    <xacro:piece_joint mark="x" index="3"/>
+    <xacro:piece_joint mark="x" index="4"/>
+    <xacro:piece_joint mark="x" index="5"/>
+    <xacro:piece_joint mark="o" index="1"/>
+    <xacro:piece_joint mark="o" index="2"/>
+    <xacro:piece_joint mark="o" index="3"/>
+    <xacro:piece_joint mark="o" index="4"/>
+    <xacro:piece_joint mark="o" index="5"/>
   </gazebo>
 </robot>

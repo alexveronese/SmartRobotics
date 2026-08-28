@@ -43,16 +43,30 @@ O_BOARD_PIECE_Z = 0.031
 SUPPLY_GRASP_Z = O_SUPPLY_PIECE_Z
 BOARD_GRASP_Z = O_BOARD_PIECE_Z
 GRIPPER_OPEN_POSITION = 0.040
-# The O has a 68 mm outside diameter. A 66 mm commanded aperture gives the
-# simulated fingers 1 mm of contact on each side without closing through it.
-O_GRASP_FINGER_POSITION = 0.033
+SAFE_APPROACH_Z = 0.240
+CLEANUP_TRANSIT = (0.57, 0.0, 0.340)
+# Both pieces are 68 mm wide. A 66 mm commanded aperture gives the simulated
+# fingers 1 mm of contact on each side without closing through either piece.
+PIECE_GRASP_FINGER_POSITION = 0.033
 
 CELL_POSITIONS = tuple(
     (0.67 - row * 0.10, 0.10 - col * 0.10)
     for row in range(3) for col in range(3)
 )
-X_SUPPLY = ((0.31, 0.26), (0.41, 0.26), (0.51, 0.26), (0.61, 0.26), (0.71, 0.26))
-O_SUPPLY = ((0.31, -0.26), (0.41, -0.26), (0.51, -0.26), (0.61, -0.26), (0.71, -0.26))
+X_SUPPLY = ((0.39, 0.26), (0.48, 0.26), (0.57, 0.26), (0.66, 0.26), (0.75, 0.26))
+O_SUPPLY = ((0.39, -0.26), (0.48, -0.26), (0.57, -0.26), (0.66, -0.26), (0.75, -0.26))
+SUPPLIES = {"x": X_SUPPLY, "o": O_SUPPLY}
+
+
+def supply_piece_for_turn(mark: str, turn_index: int) -> Tuple[str, Tuple[float, float]]:
+    """Return the far-end-first model and supply position for a turn."""
+    if mark not in SUPPLIES:
+        raise ValueError(f"unknown piece mark: {mark}")
+    supply = SUPPLIES[mark]
+    supply_index = len(supply) - 1 - turn_index
+    if supply_index < 0 or supply_index >= len(supply):
+        raise ValueError(f"no {mark.upper()} piece available for turn {turn_index + 1}")
+    return f"{mark}_piece_{supply_index + 1}", supply[supply_index]
 
 
 def render_board(board: Sequence[str]) -> str:
@@ -83,7 +97,11 @@ class TicTacToeRobot(Node):
         self.positions_lock = threading.Lock()
         self.current_positions: Optional[np.ndarray] = None
         self.attachment_condition = threading.Condition()
-        self.attachment_states = {f"o_piece_{index}": None for index in range(1, 6)}
+        self.attachment_states = {
+            f"{mark}_piece_{index}": None
+            for mark in ("x", "o")
+            for index in range(1, 6)
+        }
         self.board_condition = threading.Condition()
         self.recent_boards: deque[Tuple[str, ...]] = deque(
             maxlen=int(self.get_parameter("stable_frames").value)
@@ -110,16 +128,17 @@ class TicTacToeRobot(Node):
         )
         self.attach_pubs = {}
         self.detach_pubs = {}
-        for index in range(1, 6):
-            name = f"o_piece_{index}"
-            self.attach_pubs[name] = self.create_publisher(Empty, f"/{name}/attach", 1)
-            self.detach_pubs[name] = self.create_publisher(Empty, f"/{name}/detach", 1)
-            self.create_subscription(
-                String,
-                f"/{name}/state",
-                lambda message, piece=name: self.attachment_state_callback(piece, message),
-                1,
-            )
+        for mark in ("x", "o"):
+            for index in range(1, 6):
+                name = f"{mark}_piece_{index}"
+                self.attach_pubs[name] = self.create_publisher(Empty, f"/{name}/attach", 1)
+                self.detach_pubs[name] = self.create_publisher(Empty, f"/{name}/detach", 1)
+                self.create_subscription(
+                    String,
+                    f"/{name}/state",
+                    lambda message, piece=name: self.attachment_state_callback(piece, message),
+                    1,
+                )
         self.get_logger().info("Waiting for a stable overhead-camera view...")
 
     def joint_state_callback(self, message: JointState) -> None:
@@ -277,39 +296,60 @@ class TicTacToeRobot(Node):
                 seed = HOME.copy() if self.current_positions is None else self.current_positions.copy()
             # Prefer the current posture. Pulling each waypoint toward HOME made
             # the redundant seventh axis rotate the wrist during lateral moves.
-            positions = self.chain.inverse(
-                xyz,
-                self.grasp_rotation,
-                seed,
-                preferred=seed,
-                preference_weights=np.array([1.0, 1.0, 1.0, 1.0, 3.0, 1.0, 12.0]),
-            )
+            preference_weights = np.array([1.0, 1.0, 1.0, 1.0, 3.0, 1.0, 12.0])
+            try:
+                positions = self.chain.inverse(
+                    xyz,
+                    self.grasp_rotation,
+                    seed,
+                    preferred=seed,
+                    preference_weights=preference_weights,
+                )
+            except RuntimeError as current_seed_error:
+                # Consecutive cleanup poses can be far apart in joint space.
+                # Re-seed the numerical solver from HOME without commanding a
+                # physical HOME move between pieces.
+                self.get_logger().warning(
+                    f"IK retry from HOME seed after: {current_seed_error}"
+                )
+                positions = self.chain.inverse(
+                    xyz,
+                    self.grasp_rotation,
+                    HOME,
+                    preferred=HOME,
+                    preference_weights=preference_weights,
+                )
         self.send_trajectory(
             self.arm_client, ARM_JOINTS, positions,
             duration or float(self.get_parameter("motion_duration").value),
         )
 
     def move_gripper(self, opened: bool) -> None:
-        value = GRIPPER_OPEN_POSITION if opened else O_GRASP_FINGER_POSITION
+        value = GRIPPER_OPEN_POSITION if opened else PIECE_GRASP_FINGER_POSITION
         duration = float(self.get_parameter("gripper_duration").value)
         self.send_trajectory(self.gripper_client, GRIPPER_JOINTS, [value, value], duration)
 
     def reset_pieces(self) -> None:
-        for index, (x, y) in enumerate(X_SUPPLY, start=1):
-            self.set_piece_pose(f"x_piece_{index}", (x, y, X_SUPPLY_PIECE_Z))
-        for index, (x, y) in enumerate(O_SUPPLY, start=1):
-            name = f"o_piece_{index}"
-            self.set_piece_attachment(name, False)
-            self.set_piece_pose(name, (x, y, O_SUPPLY_PIECE_Z))
+        for mark, supply in SUPPLIES.items():
+            for index, (x, y) in enumerate(supply, start=1):
+                name = f"{mark}_piece_{index}"
+                self.set_piece_attachment(name, False)
+                self.set_piece_pose(name, (x, y, SUPPLY_GRASP_Z))
 
-    def place_robot_piece(self, piece_index: int, cell: int) -> None:
-        # Consume the row from its far end: O5, O4, O3, O2, then O1.
-        supply_index = len(O_SUPPLY) - 1 - piece_index
-        piece_name = f"o_piece_{supply_index + 1}"
-        sx, sy = O_SUPPLY[supply_index]
-        tx, ty = CELL_POSITIONS[cell]
-        tz = O_BOARD_PIECE_Z
-        self.publish_status(f"Robot is placing O in cell {cell + 1}")
+    def transport_piece(
+        self,
+        piece_name: str,
+        source_xy: Tuple[float, float],
+        source_z: float,
+        target_xy: Tuple[float, float],
+        target_z: float,
+        status: str,
+        return_home: bool = True,
+    ) -> None:
+        """Pick at source, place at target, and optionally return HOME."""
+        sx, sy = source_xy
+        tx, ty = target_xy
+        self.publish_status(status)
         base_duration = float(self.get_parameter("motion_duration").value)
 
         def motion_time(scale: float) -> float:
@@ -317,24 +357,78 @@ class TicTacToeRobot(Node):
 
         try:
             self.move_gripper(True)
-            self.move_arm((sx, sy, 0.24))
-            self.move_arm((sx, sy, SUPPLY_GRASP_Z), motion_time(0.75))
+            self.move_arm((sx, sy, SAFE_APPROACH_Z))
+            self.move_arm((sx, sy, source_z), motion_time(0.75))
             self.move_gripper(False)
             self.set_piece_attachment(piece_name, True)
-            self.move_arm((sx, sy, 0.24), motion_time(0.80))
-            self.move_arm((tx, ty, 0.24))
-            self.move_arm((tx, ty, BOARD_GRASP_Z), motion_time(0.75))
+            self.move_arm((sx, sy, SAFE_APPROACH_Z), motion_time(0.80))
+            self.move_arm((tx, ty, SAFE_APPROACH_Z))
+            self.move_arm((tx, ty, target_z), motion_time(0.75))
             self.move_gripper(True)
             self.set_piece_attachment(piece_name, False)
             # Correct only the final resting pose; transport itself is handled
             # by Gazebo's native fixed joint without asynchronous pose updates.
-            self.set_piece_pose(piece_name, (tx, ty, tz))
-            self.move_arm((tx, ty, 0.24), motion_time(0.80))
+            self.set_piece_pose(piece_name, (tx, ty, target_z))
+            self.move_arm((tx, ty, SAFE_APPROACH_Z), motion_time(0.80))
         finally:
-            # HOME is a safety invariant after every robot turn, including failures.
-            if self.attachment_states[piece_name]:
+            # Normal turns return HOME here; cleanup defers it to clear_board.
+            if self.attachment_states[piece_name] is True:
                 self.set_piece_attachment(piece_name, False)
-            self.move_arm(None, base_duration)
+            if return_home:
+                self.move_arm(None, base_duration)
+
+    def place_game_piece(self, mark: str, turn_index: int, cell: int) -> None:
+        piece_name, supply_xy = supply_piece_for_turn(mark, turn_index)
+        self.transport_piece(
+            piece_name,
+            supply_xy,
+            SUPPLY_GRASP_Z,
+            CELL_POSITIONS[cell],
+            BOARD_GRASP_Z,
+            f"Robot is placing {mark.upper()} in cell {cell + 1}",
+        )
+
+    def return_game_piece(
+        self, mark: str, turn_index: int, cell: int, return_home: bool = True
+    ) -> None:
+        piece_name, supply_xy = supply_piece_for_turn(mark, turn_index)
+        self.transport_piece(
+            piece_name,
+            CELL_POSITIONS[cell],
+            BOARD_GRASP_Z,
+            supply_xy,
+            SUPPLY_GRASP_Z,
+            f"Robot is returning {piece_name} to its supply position",
+            return_home=return_home,
+        )
+
+    def clear_board(self, placed_pieces: Sequence[Tuple[str, int, int]]) -> None:
+        """Return played pieces and leave every supply model exactly aligned."""
+        self.publish_status("Game finished; clearing the board")
+        try:
+            # Pieces were consumed X5/O5 toward X1/O1. Restore them in that
+            # same direction so X1 is placed last instead of being exposed to
+            # every subsequent gripper approach along the tightly spaced row.
+            cleanup_order = list(placed_pieces)
+            for index, (mark, turn_index, cell) in enumerate(cleanup_order):
+                self.return_game_piece(mark, turn_index, cell, return_home=False)
+                if index + 1 < len(cleanup_order):
+                    # A central high waypoint prevents a joint-space shortcut
+                    # from sweeping through pieces already restored to a row.
+                    self.move_arm(CLEANUP_TRANSIT)
+        finally:
+            # Cleanup is one continuous operation; HOME is needed only once.
+            self.move_arm(None, float(self.get_parameter("motion_duration").value))
+
+        # Contact while restoring a neighbouring piece can leave a dynamic
+        # square translated or yawed slightly. Once the robot is safely HOME,
+        # normalize every returned model so no later motion can disturb it.
+        normalized = set()
+        for mark, turn_index, _ in placed_pieces:
+            piece_name, (x, y) = supply_piece_for_turn(mark, turn_index)
+            if piece_name not in normalized:
+                self.set_piece_pose(piece_name, (x, y, SUPPLY_GRASP_Z))
+                normalized.add(piece_name)
 
     def prompt_move(self, board: Tuple[str, ...]) -> int:
         while rclpy.ok():
@@ -357,6 +451,7 @@ class TicTacToeRobot(Node):
             board = self.wait_for_board(tuple("" for _ in range(9)), timeout=12.0)
             x_count = 0
             o_count = 0
+            placed_pieces = []
             self.publish_status("New game: you are X and move first")
             print("\n" + render_board(board) + "\n", flush=True)
 
@@ -364,9 +459,8 @@ class TicTacToeRobot(Node):
                 human_move = self.prompt_move(board)
                 expected = list(board)
                 expected[human_move] = "x"
-                x, y = CELL_POSITIONS[human_move]
-                z = X_BOARD_PIECE_Z
-                self.set_piece_pose(f"x_piece_{x_count + 1}", (x, y, z))
+                self.place_game_piece("x", x_count, human_move)
+                placed_pieces.append(("x", x_count, human_move))
                 x_count += 1
                 board = self.wait_for_board(tuple(expected))
                 result = game_result(board)
@@ -377,7 +471,8 @@ class TicTacToeRobot(Node):
                 robot_move = choose_best_move(board)
                 expected = list(board)
                 expected[robot_move] = "o"
-                self.place_robot_piece(o_count, robot_move)
+                self.place_game_piece("o", o_count, robot_move)
+                placed_pieces.append(("o", o_count, robot_move))
                 o_count += 1
                 board = self.wait_for_board(tuple(expected))
                 print("\n" + render_board(board) + "\n", flush=True)
@@ -389,6 +484,10 @@ class TicTacToeRobot(Node):
             message = {"x": "You win!", "o": "Robot wins!", "draw": "Draw game."}.get(result, "Game stopped.")
             self.publish_status(f"GAME OVER: {message}")
             print(f"\n{render_board(board)}\n{message}", flush=True)
+            if result is not None and not self.stopping:
+                self.clear_board(placed_pieces)
+                self.wait_for_board(tuple("" for _ in range(9)), timeout=12.0)
+                self.publish_status("Cleanup complete; all pieces are back in their supply positions")
         except Exception as exc:
             self.get_logger().error(f"Game aborted: {exc}")
             self.publish_status(f"ERROR: {exc}")
