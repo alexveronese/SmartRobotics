@@ -11,7 +11,7 @@ import xacro
 
 
 def generate_launch_description():
-    package_share = get_package_share_directory("nuovo_progetto")
+    package_share = get_package_share_directory("robotictactoe")
     panda_share = get_package_share_directory("moveit_resources_panda_description")
     controllers_path = os.path.join(package_share, "config", "controllers.yaml")
     xacro_path = os.path.join(package_share, "urdf", "panda.urdf.xacro")

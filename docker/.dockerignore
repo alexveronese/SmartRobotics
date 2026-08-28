@@ -1,8 +1,0 @@
-.git
-.gitignore
-.env
-.DS_Store
-__pycache__
-*.py[cod]
-README.md
-chapter_ws

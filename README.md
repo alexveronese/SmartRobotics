@@ -44,15 +44,15 @@ Start simulation and controllers in terminal 1:
 
 ```bash
 source ~/jazzy_ws/install/setup.bash
-ros2 launch nuovo_progetto gazebo.launch.py
+ros2 launch robotictactoe gazebo.launch.py
 ```
 
 Once all three controllers report `active`, start the interactive node in terminal 2:
 
 ```bash
 source ~/jazzy_ws/install/setup.bash
-ros2 run nuovo_progetto tic_tac_toe_game.py --ros-args \
-  --params-file $(ros2 pkg prefix nuovo_progetto)/share/nuovo_progetto/config/game.yaml
+ros2 run robotictactoe tic_tac_toe_game.py --ros-args \
+  --params-file $(ros2 pkg prefix robotictactoe)/share/robotictactoe/config/game.yaml
 ```
 
 Enter an available number when prompted. X opens rounds 1 and 3; the robot opens
@@ -122,7 +122,7 @@ These heights match the base coordinate convention used by the Panda description
 ## Tests
 
 ```bash
-colcon test --packages-select nuovo_progetto
+colcon test --packages-select robotictactoe
 colcon test-result --verbose
 ```
 

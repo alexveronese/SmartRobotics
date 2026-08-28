@@ -91,7 +91,7 @@ class TicTacToeRobot(Node):
         self.declare_parameter("gripper_duration", 0.45)
 
         self.bridge = CvBridge()
-        package_share = get_package_share_directory("nuovo_progetto")
+        package_share = get_package_share_directory("robotictactoe")
         robot_description = xacro.process_file(
             str(package_share + "/urdf/panda.urdf.xacro"),
             mappings={"controllers_file": str(package_share + "/config/controllers.yaml")},
