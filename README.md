@@ -70,8 +70,9 @@ ros2 control list_controllers
 - Tabletop: `0.65 x 0.68 x 0.05 m`, with its top at `Z = 0.000 m`.
 - Table X range: `0.245–0.895 m`; this leaves 85 mm between the tabletop and the pedestal.
 - Board: `0.32 x 0.32 x 0.016 m`, top at `Z = 0.016 m`.
-- O pieces: solid blue cylinders, `68 mm` diameter and `30 mm` height.
-- O centre: `Z = 0.015 m` on the table and `Z = 0.031 m` on the board.
+- X and O pieces are `30 mm` tall; O pieces are solid blue cylinders with a
+  `68 mm` diameter.
+- Piece centre: `Z = 0.015 m` on the table and `Z = 0.031 m` on the board.
 - Panda TCP grasp target: the O middle height, `Z = 0.015 m` at the supply and `Z = 0.031 m` at the board.
 - Safe approach height: `Z = 0.240 m`.
 

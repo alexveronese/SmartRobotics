@@ -37,10 +37,12 @@ def test_board_and_piece_heights_follow_table_surface():
     board_collision = models["board"].find("link/collision")
     board_z = _numbers(board_collision.findtext("pose"))[2]
     board_thickness = _numbers(board_collision.findtext("geometry/box/size"))[2]
-    piece_z = _numbers(models["o_piece_1"].findtext("pose"))[2]
+    o_piece_z = _numbers(models["o_piece_1"].findtext("pose"))[2]
+    x_piece_z = _numbers(models["x_piece_1"].findtext("pose"))[2]
 
     assert board_z + board_thickness / 2.0 == pytest.approx(0.016)
-    assert piece_z == pytest.approx(0.015)
+    assert o_piece_z == pytest.approx(0.015)
+    assert x_piece_z == pytest.approx(0.015)
 
 
 def test_pieces_use_matching_rows_and_o_pieces_have_clear_grasp_spacing():
@@ -66,6 +68,11 @@ def test_pieces_use_matching_rows_and_o_pieces_have_clear_grasp_spacing():
         _numbers(models[f"x_piece_{index}"].findtext("pose"))[:2]
         for index in range(1, 6)
     ]
+    for index in range(1, 6):
+        x_piece = models[f"x_piece_{index}"]
+        assert float(x_piece.findtext("link/collision/geometry/cylinder/length")) == pytest.approx(0.030)
+        for visual in x_piece.findall("link/visual"):
+            assert _numbers(visual.findtext("geometry/box/size"))[2] == pytest.approx(0.030)
     assert [position[0] for position in x_positions] == pytest.approx(
         [0.31, 0.41, 0.51, 0.61, 0.71]
     )

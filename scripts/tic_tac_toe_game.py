@@ -36,8 +36,8 @@ GRIPPER_JOINTS = ["panda_finger_joint1", "panda_finger_joint2"]
 
 # Camera numbering is top-left to bottom-right. With the supplied camera pose,
 # image rows run from +world-X to -world-X and columns from +world-Y to -world-Y.
-X_SUPPLY_PIECE_Z = 0.007
-X_BOARD_PIECE_Z = 0.023
+X_SUPPLY_PIECE_Z = 0.015
+X_BOARD_PIECE_Z = 0.031
 O_SUPPLY_PIECE_Z = 0.015
 O_BOARD_PIECE_Z = 0.031
 SUPPLY_GRASP_Z = O_SUPPLY_PIECE_Z
@@ -338,7 +338,7 @@ class TicTacToeRobot(Node):
 
     def prompt_move(self, board: Tuple[str, ...]) -> int:
         while rclpy.ok():
-            print("\n" + render_board(board), flush=True)
+            #print("\n" + render_board(board), flush=True)
             try:
                 raw = input("Your move (X), choose cell 1-9: ").strip()
             except EOFError as exc:
@@ -358,6 +358,7 @@ class TicTacToeRobot(Node):
             x_count = 0
             o_count = 0
             self.publish_status("New game: you are X and move first")
+            print("\n" + render_board(board) + "\n", flush=True)
 
             while rclpy.ok() and not self.stopping:
                 human_move = self.prompt_move(board)
@@ -372,13 +373,14 @@ class TicTacToeRobot(Node):
                 if result is not None:
                     break
 
+                print("\n" + render_board(board) + "\n", flush=True)
                 robot_move = choose_best_move(board)
                 expected = list(board)
                 expected[robot_move] = "o"
                 self.place_robot_piece(o_count, robot_move)
                 o_count += 1
                 board = self.wait_for_board(tuple(expected))
-                print("\n" + render_board(board), flush=True)
+                print("\n" + render_board(board) + "\n", flush=True)
                 result = game_result(board)
                 if result is not None:
                     break
